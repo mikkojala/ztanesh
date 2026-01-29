@@ -69,8 +69,43 @@ Out of the box you will be able to
 
 * **Over ten years** of running in production experience
 
+* **Modular prompt panels** - Enable/disable prompt components (AWS, virtualenv, Kubernetes, server status) independently. Create custom panels easily.
+
 * **Upcoming:** intershell clipboard using a pure python X client (you need X forwarding and X11 daemon
   on an originating computer. Launching local commands from remote commandline over ssh X11 forwarding.
+
+Prompt Panels
+++++++++++++++++
+
+ZtaneSH includes a modular prompt panel system for customizing prompt information.
+
+**Built-in panels:**
+
+* **aws**: Shows current AWS profile
+* **virtualenv**: Shows Python virtual environment with warnings
+* **server-status**: Shows server status from ``/etc/server-status``
+* **extra-prompt**: Calls user-defined custom prompt function
+
+**Managing panels:**
+
+List available panels::
+
+    ztanesh-panels list
+
+Show enabled/disabled status::
+
+    ztanesh-panels status
+
+Enable or disable panels::
+
+    ztanesh-panels enable aws
+    ztanesh-panels disable virtualenv
+
+Edit configuration directly::
+
+    ztanesh-panels config
+
+See ``zsh-scripts/panels/README.md`` for creating custom panels.
 
 Installation
 ----------------

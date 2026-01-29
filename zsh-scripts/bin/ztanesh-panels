@@ -1,0 +1,184 @@
+#!/bin/zsh
+# Ztanesh Panel Management Script
+# Manage prompt panels - enable, disable, list, and configure
+
+SCRIPT_DIR="${0:A:h}"
+PANELS_DIR="$SCRIPT_DIR/../panels"
+CONFIG_FILE="$SCRIPT_DIR/../config/panel-config.zsh"
+
+function usage() {
+    cat << EOF
+Ztanesh Panel Manager
+
+Usage: ztanesh-panels [command] [options]
+
+Commands:
+    list            List all available panels
+    status          Show enabled/disabled status of all panels
+    enable <panel>  Enable a panel
+    disable <panel> Disable a panel
+    config          Edit panel configuration file
+    help            Show this help
+
+Available panels:
+EOF
+    if [[ -d "$PANELS_DIR" ]]; then
+        for panel_file in "$PANELS_DIR"/*.zsh; do
+            [[ -f "$panel_file" ]] && echo "    $(basename "$panel_file" .zsh)"
+        done
+    fi
+}
+
+function list_panels() {
+    echo "Available panels:"
+    if [[ -d "$PANELS_DIR" ]]; then
+        for panel_file in "$PANELS_DIR"/*.zsh; do
+            if [[ -f "$panel_file" ]]; then
+                local panel=$(basename "$panel_file" .zsh)
+                echo "  $panel"
+            fi
+        done
+    fi
+}
+
+function show_status() {
+    # Source config to get enabled panels
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+    fi
+    
+    echo "Panel Status:"
+    if [[ -d "$PANELS_DIR" ]]; then
+        for panel_file in "$PANELS_DIR"/*.zsh; do
+            if [[ -f "$panel_file" ]]; then
+                local panel=$(basename "$panel_file" .zsh)
+                if [[ " ${ZTANESH_ENABLED_PANELS[*]} " =~ " ${panel} " ]]; then
+                    echo "  ✓ $panel (enabled)"
+                else
+                    echo "    $panel (disabled)"
+                fi
+            fi
+        done
+    fi
+}
+
+function enable_panel() {
+    local panel="$1"
+
+    # Validation
+    if [[ -z "$panel" ]]; then
+        echo "Error: Panel name required" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$PANELS_DIR/$panel.zsh" ]]; then
+        echo "Error: Panel '$panel' not found" >&2
+        return 1
+    fi
+
+    # Source current config
+    source "$CONFIG_FILE"
+
+    # Check if already enabled (idempotency)
+    if [[ " ${ZTANESH_ENABLED_PANELS[*]} " =~ " ${panel} " ]]; then
+        echo "Panel '$panel' is already enabled"
+        return 0
+    fi
+
+    # Add to array
+    ZTANESH_ENABLED_PANELS+=("$panel")
+
+    # Rewrite config file
+    update_config_array
+
+    echo "Panel '$panel' enabled. Restart your shell for changes to take effect."
+}
+
+function disable_panel() {
+    local panel="$1"
+
+    if [[ -z "$panel" ]]; then
+        echo "Error: Panel name required" >&2
+        return 1
+    fi
+
+    # Source current config
+    source "$CONFIG_FILE"
+
+    # Check if actually enabled
+    if [[ ! " ${ZTANESH_ENABLED_PANELS[*]} " =~ " ${panel} " ]]; then
+        echo "Panel '$panel' is already disabled"
+        return 0
+    fi
+
+    # Remove from array using ZSH array filtering
+    ZTANESH_ENABLED_PANELS=("${(@)ZTANESH_ENABLED_PANELS:#$panel}")
+
+    # Rewrite config file
+    update_config_array
+
+    echo "Panel '$panel' disabled. Restart your shell for changes to take effect."
+}
+
+function update_config_array() {
+    local temp_file="${CONFIG_FILE}.tmp"
+    local p
+
+    # Write everything before the array
+    awk '/^ZTANESH_ENABLED_PANELS=\(/ {exit} {print}' "$CONFIG_FILE" > "$temp_file"
+
+    # Write the new array
+    echo "ZTANESH_ENABLED_PANELS=(" >> "$temp_file"
+    for p in "${ZTANESH_ENABLED_PANELS[@]}"; do
+        echo "    $p" >> "$temp_file"
+    done
+    echo ")" >> "$temp_file"
+
+    # Write everything after the array
+    awk '
+        BEGIN { in_array = 0; past_array = 0 }
+        /^ZTANESH_ENABLED_PANELS=\(/ { in_array = 1; next }
+        in_array && /^\)/ { in_array = 0; past_array = 1; next }
+        past_array { print }
+    ' "$CONFIG_FILE" >> "$temp_file"
+
+    if mv "$temp_file" "$CONFIG_FILE"; then
+        return 0
+    else
+        echo "Error: Failed to update config file" >&2
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
+function edit_config() {
+    if [[ -n "$EDITOR" ]]; then
+        "$EDITOR" "$CONFIG_FILE"
+    else
+        echo "No \$EDITOR set. Edit $CONFIG_FILE manually"
+    fi
+}
+
+case "$1" in
+    list)
+        list_panels
+        ;;
+    status)
+        show_status
+        ;;
+    enable)
+        enable_panel "$2"
+        ;;
+    disable)
+        disable_panel "$2"
+        ;;
+    config)
+        edit_config
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    *)
+        usage
+        ;;
+esac

@@ -8,6 +8,9 @@
 # http://www.dawoodfall.net/index.php/custom-zsh-prompts
 #
 
+# Load modular prompt panel system
+source "${0:A:h}/../config/panel-config.zsh"
+source "${0:A:h}/../lib/prompt-panels.zsh"
 
 # The string here is not actually used.. no idea
 PROMPT='%{$fg_bold[green]%}%p %{$fg[cyan]%}%c%{$fg_bold[blue]%}$(git_prompt_info)%{$fg_bold[blue]%} % %{$reset_color%}'
@@ -46,54 +49,10 @@ function setup_prompt {
     # New line
     # Show the current folder
     PROMPT=$(echo -ne '%B$(git_prompt_info)\n%{\033[0m%}%B[%{\033[36m%}%~%b%B]%# ')
-    # Check that if we are in a Python virtualenv folder
-    # but virtualenv is not activatd
-    local proposed_virtual_env=$(check_unset_venv)
-    local proposed_envname=$(basename "$proposed_virtual_env")
 
-    if typeset -f extra_prompt_panel > /dev/null
-    then
-        local extra="$(extra_prompt_panel)"
-        if [[ -n "$extra" ]]
-        then
-            PROMPT="$extra$PROMPT"
-        fi
-    fi
-
-    if [[ "$SERVER_STATUS_ENABLED" == "1" ]]
-    then
-        SERVER_STATUS=$(xargs echo -ne < /etc/server-status)
-        if [[ $SERVER_STATUS == 'LIVE!' ]]
-        then
-            COLOR="1;5;41;33m"
-        else
-            COLOR="0;30;46m"
-        fi
-        PROMPT=$(echo -ne "%{\033[1;37m%}[%{\033[$COLOR%}$SERVER_STATUS%{\033[0;37;1m%}]%{\033[0m%}")"$PROMPT"
-        unset COLOR
-    fi
-
-    if [[ "$AWS_PROFILE" != "" ]]
-    then
-        PROMPT=$(echo -ne "%{\033[1;37m%}[%{\033[1;33m\033[38;2;255;153;0m%}$AWS_PROFILE%{\033[0;37;1m%}]%{\033[0m%}")"$PROMPT"
-    fi
-
-    if [[ "$VIRTUAL_ENV" != "" ]]
-    then
-        local envname=$(basename "$VIRTUAL_ENV")
-
-        if [[ "$proposed_virtual_env" != "" && "$proposed_virtual_env" != "$VIRTUAL_ENV" ]]
-        then
-            PROMPT=$(echo -ne "%{\033[1;33m%}[%{\033[0;31;43m%}$proposed_envname%{\033[0;33;1m%}]%{\033[0m%}")"$PROMPT"
-        fi
-
-        PROMPT=$(echo -ne "%{\033[1;36m%}[%{\033[1;34m%}$envname%{\033[36m%}]%{\033[0m%}")"$PROMPT"
-    else
-        if [[ "$proposed_envname" != "" ]]
-        then
-            PROMPT=$(echo -ne "%{\033[1;31m%}[%{\033[0;30;41;5m%}$proposed_envname%{\033[0;31;1m%}]%{\033[0m%}")"$PROMPT"
-        fi
-    fi
+    # Initialize and execute modular prompt panels
+    init_prompt_panels
+    setup_prompt_panels
 }
 
 if [[ -x /usr/bin/hostname-filter ]]
